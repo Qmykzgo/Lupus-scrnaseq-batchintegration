@@ -1,0 +1,33 @@
+# Data (large, download via scripts/00_download_data.sh)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Results (regenerate via the pipeline)
+results/figures/*
+results/tables/*
+!results/figures/.gitkeep
+!results/tables/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.egg-info/
+.pytest_cache/
+
+# Environments
+.venv/
+venv/
+.env
+
+# OS
+.DS_Store
+
+# scVI training artifacts
+lightning_logs/
+*.ckpt
+
+# Windows Zone.Identifier files
+*Zone.Identifier
