@@ -15,9 +15,8 @@ mkdir -p "$RAW_DIR"
 
 GEO_ACCESSION="GSE174188"
 FILE_NAME="GSE174188_CLUES1_adjusted.h5ad.gz"
-# Standard GEO FTP directory pattern: series are bucketed by their first
-# digits, e.g. GSE174188 -> GSE174nnn/GSE174188/suppl/
-FTP_URL="https://ftp.ncbi.nlm.nih.gov/geo/series/GSE174nnn/${GEO_ACCESSION}/suppl/${FILE_NAME}"
+# NCBI GEO HTTP download URL (used as primary source because the FTP suppl directory is omitted for this accession)
+DOWNLOAD_URL="https://www.ncbi.nlm.nih.gov/geo/download/?acc=${GEO_ACCESSION}&format=file&file=${FILE_NAME}"
 
 DEST_GZ="$RAW_DIR/$FILE_NAME"
 DEST_H5AD="$RAW_DIR/${FILE_NAME%.gz}"
@@ -28,8 +27,8 @@ if [[ -f "$DEST_H5AD" ]]; then
 fi
 
 echo "Downloading $GEO_ACCESSION supplementary file from GEO..."
-echo "  $FTP_URL"
-curl -L --fail --retry 3 --retry-delay 5 -o "$DEST_GZ" "$FTP_URL"
+echo "  $DOWNLOAD_URL"
+curl -L --fail --retry 3 --retry-delay 5 -o "$DEST_GZ" "$DOWNLOAD_URL"
 
 echo "Decompressing..."
 gunzip -k "$DEST_GZ"   # -k keeps the .gz in case you want to re-verify later

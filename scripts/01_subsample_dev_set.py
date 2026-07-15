@@ -45,7 +45,11 @@ def stratified_indices(obs, n_target: int, seed: int) -> np.ndarray:
         n = min(len(g), n)
         return g.sample(n=n, random_state=seed)
 
-    sampled = obs.groupby(strata_cols, observed=True, group_keys=False).apply(sample_group)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FutureWarning, message=".*DataFrameGroupBy.apply.*")
+        sampled = obs.groupby(strata_cols, observed=True, group_keys=False).apply(sample_group)
+        
     idx = obs.index.get_indexer(sampled.index)
     return np.sort(idx)
 
