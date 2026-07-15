@@ -4,11 +4,8 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
-# Results (regenerate via the pipeline)
-results/figures/*
-results/tables/*
-!results/figures/.gitkeep
-!results/tables/.gitkeep
+# Results (tracked and pushed)
+# results/ figures and tables are now allowed to be committed
 
 # Python
 __pycache__/
