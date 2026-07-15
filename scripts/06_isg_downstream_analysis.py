@@ -222,6 +222,12 @@ def main():
     adata = sc.read_h5ad(config.CKPT_QC)
     logger.info("Loaded %d cells x %d genes", adata.n_obs, adata.n_vars)
 
+    # Map gene IDs (var_names) to feature_name (gene symbols) in main adata
+    if 'feature_name' in adata.var.columns:
+        logger.info("Mapping gene IDs (var_names) to feature_name (gene symbols)")
+        adata.var_names = adata.var['feature_name'].astype(str)
+        adata.var_names_make_unique()
+
     logger.info("--- Part A: confounding check ---")
     check_confounding(adata, logger)
 
@@ -281,6 +287,16 @@ def run_scvi_denoised_comparison(logger):
     # Create an AnnData with scVI denoised expression in .X
     adata_denoised = adata.copy()
     adata_denoised.X = denoised_expr
+    
+    # Map gene IDs to gene symbols for raw and denoised adata
+    if 'feature_name' in adata.var.columns:
+        logger.info("Mapping gene IDs to gene symbols for raw adata")
+        adata.var_names = adata.var['feature_name'].astype(str)
+        adata.var_names_make_unique()
+    if 'feature_name' in adata_denoised.var.columns:
+        logger.info("Mapping gene IDs to gene symbols for denoised adata")
+        adata_denoised.var_names = adata_denoised.var['feature_name'].astype(str)
+        adata_denoised.var_names_make_unique()
     
     logger.info("Scoring cells using scVI denoised expression...")
     adata_denoised = score_isg_signature(adata_denoised, logger)

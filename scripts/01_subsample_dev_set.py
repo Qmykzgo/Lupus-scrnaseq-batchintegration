@@ -75,6 +75,31 @@ def main():
     adata = sc.read_h5ad(config.RAW_H5AD, backed="r")
     logger.info("Full object: %d cells x %d genes", adata.n_obs, adata.n_vars)
 
+    # Map CELLxGENE columns to the author's original names expected by the pipeline
+    obs = adata.obs.copy()
+    mapped = False
+    if 'library_uuid' in obs.columns and config.BATCH_KEY not in obs.columns:
+        logger.info("Mapping CELLxGENE 'library_uuid' -> '%s'", config.BATCH_KEY)
+        obs[config.BATCH_KEY] = obs['library_uuid']
+        mapped = True
+    if 'author_cell_type' in obs.columns and config.CELLTYPE_COARSE_KEY not in obs.columns:
+        logger.info("Mapping CELLxGENE 'author_cell_type' -> '%s'", config.CELLTYPE_COARSE_KEY)
+        obs[config.CELLTYPE_COARSE_KEY] = obs['author_cell_type']
+        mapped = True
+    if 'disease' in obs.columns and config.DISEASE_KEY not in obs.columns:
+        logger.info("Mapping CELLxGENE 'disease' -> '%s'", config.DISEASE_KEY)
+        obs[config.DISEASE_KEY] = obs['disease'].map({
+            'systemic lupus erythematosus': 'SLE',
+            'normal': 'Healthy'
+        })
+        mapped = True
+    if config.SAMPLE_KEY not in obs.columns and config.INDIVIDUAL_KEY in obs.columns and config.BATCH_KEY in obs.columns:
+        obs[config.SAMPLE_KEY] = obs[config.INDIVIDUAL_KEY].astype(str) + "_" + obs[config.BATCH_KEY].astype(str)
+        mapped = True
+        
+    if mapped:
+        adata.obs = obs
+
     for col in (config.BATCH_KEY, config.DISEASE_KEY, config.CELLTYPE_COARSE_KEY,
                 config.INDIVIDUAL_KEY, config.PROCESSING_COHORT_KEY):
         if col not in adata.obs.columns:

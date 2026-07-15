@@ -69,52 +69,80 @@ def manual_silhouette(adata, embed_key: str):
 
 def main():
     setup_plot_style()
+    import gc
 
-    loaded = {}
-    for name, (path, embed_key) in METHOD_CHECKPOINTS.items():
-        if not path.exists():
-            logger.warning("Checkpoint for '%s' not found at %s — skipping. "
-                            "Run scripts/04_batch_integration.py.", name, path)
-            continue
-        loaded[name] = (sc.read_h5ad(path), embed_key)
-        logger.info("Loaded '%s': %d cells", name, loaded[name][0].n_obs)
+    # 1. Load uncorrected baseline first in backed mode to avoid loading heavy .X dense matrix
+    uncorrected_path, uncorrected_embed = METHOD_CHECKPOINTS["uncorrected"]
+    if not uncorrected_path.exists():
+        raise SystemExit(f"Need uncorrected baseline checkpoint at {uncorrected_path} to compare against.")
+    
+    logger.info("Loading baseline checkpoint in backed mode...")
+    adata_backed = sc.read_h5ad(uncorrected_path, backed="r")
+    adata_uncorrected = sc.AnnData(
+        obs=adata_backed.obs.copy(),
+        obsm={k: adata_backed.obsm[k].copy() for k in adata_backed.obsm.keys()}
+    )
+    adata_backed.file.close()
+    del adata_backed
+    logger.info("Loaded 'uncorrected': %d cells", adata_uncorrected.n_obs)
 
-    if "uncorrected" not in loaded:
-        raise SystemExit("Need at least the uncorrected baseline checkpoint to compare against.")
-
-    adata_uncorrected = loaded["uncorrected"][0]
+    # We will keep light versions of each method for final plotting to save RAM
+    plot_adata = {
+        "uncorrected": sc.AnnData(
+            obs=adata_uncorrected.obs.copy(),
+            obsm={"X_umap": adata_uncorrected.obsm["X_umap"].copy()}
+        )
+    }
 
     rows = []
-    for name, (adata, embed_key) in loaded.items():
+    for name, (path, embed_key) in METHOD_CHECKPOINTS.items():
         if name == "uncorrected":
             continue
-        logger.info("Benchmarking '%s' (embedding: %s)...", name, embed_key)
+        if not path.exists():
+            logger.warning("Checkpoint for '%s' not found at %s — skipping.", name, path)
+            continue
+        
+        logger.info("Loading checkpoint for '%s' in backed mode...", name)
+        adata_backed = sc.read_h5ad(path, backed="r")
+        adata = sc.AnnData(
+            obs=adata_backed.obs.copy(),
+            obsm={k: adata_backed.obsm[k].copy() for k in adata_backed.obsm.keys()}
+        )
+        adata_backed.file.close()
+        del adata_backed
+        logger.info("Loaded '%s': %d cells", name, adata.n_obs)
 
+        logger.info("Benchmarking '%s' (embedding: %s)...", name, embed_key)
         scib_metrics = try_scib_metrics(adata_uncorrected, adata, embed_key)
         manual = manual_silhouette(adata, embed_key)
 
         row = {"method": name, **manual}
         if scib_metrics is not None:
-            # scib returns a DataFrame/Series depending on version; normalize to dict
             row["scib_metrics"] = (
                 scib_metrics.to_dict() if hasattr(scib_metrics, "to_dict") else dict(scib_metrics)
             )
         rows.append(row)
+
+        # Store light copy for plotting and free full memory
+        plot_adata[name] = sc.AnnData(
+            obs=adata.obs.copy(),
+            obsm={"X_umap": adata.obsm["X_umap"].copy()}
+        )
+        
+        del adata
+        gc.collect()
 
     summary = pd.DataFrame(rows).set_index("method")
     logger.info("Integration benchmark summary:\n%s", summary.to_string())
     save_table(summary, "05_integration_benchmark_summary", logger)
 
     # --- Side-by-side UMAP comparison -------------------------------------
-    # Per the workflow guide: good mixing AND clean cell-type separation
-    # together is the signature of good integration; mixing alone can mean
-    # overcorrection, so both panels matter.
     import matplotlib.pyplot as plt
 
-    methods_present = [m for m in ["uncorrected", "harmony", "bbknn", "scvi"] if m in loaded]
+    methods_present = [m for m in ["uncorrected", "harmony", "bbknn", "scvi"] if m in plot_adata]
     fig, axes = plt.subplots(2, len(methods_present), figsize=(5 * len(methods_present), 9))
     for col, name in enumerate(methods_present):
-        adata = loaded[name][0]
+        adata = plot_adata[name]
         sc.pl.umap(adata, color=config.BATCH_KEY, ax=axes[0, col], show=False,
                    title=f"{name}: batch_cov", legend_loc=None, size=3)
         sc.pl.umap(adata, color=config.CELLTYPE_COARSE_KEY, ax=axes[1, col], show=False,

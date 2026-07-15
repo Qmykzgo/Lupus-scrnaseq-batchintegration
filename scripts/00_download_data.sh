@@ -14,25 +14,20 @@ RAW_DIR="$REPO_ROOT/data/raw"
 mkdir -p "$RAW_DIR"
 
 GEO_ACCESSION="GSE174188"
-FILE_NAME="GSE174188_CLUES1_adjusted.h5ad.gz"
-# NCBI GEO HTTP download URL (used as primary source because the FTP suppl directory is omitted for this accession)
-DOWNLOAD_URL="https://www.ncbi.nlm.nih.gov/geo/download/?acc=${GEO_ACCESSION}&format=file&file=${FILE_NAME}"
+FILE_NAME="GSE174188_CLUES1_adjusted.h5ad"
+# CELLxGENE direct public download URL (since original GEO FTP/HTTP supplementary downloads are restricted/deleted)
+DOWNLOAD_URL="https://datasets.cellxgene.cziscience.com/c55dc602-d168-4d15-acc1-5de4f2f5d551.h5ad"
 
-DEST_GZ="$RAW_DIR/$FILE_NAME"
-DEST_H5AD="$RAW_DIR/${FILE_NAME%.gz}"
+DEST_H5AD="$RAW_DIR/$FILE_NAME"
 
 if [[ -f "$DEST_H5AD" ]]; then
   echo "Already present: $DEST_H5AD (delete it if you want to re-download)"
   exit 0
 fi
 
-echo "Downloading $GEO_ACCESSION supplementary file from GEO..."
+echo "Downloading $GEO_ACCESSION processed dataset from CELLxGENE..."
 echo "  $DOWNLOAD_URL"
-curl -L --fail --retry 3 --retry-delay 5 -o "$DEST_GZ" "$DOWNLOAD_URL"
-
-echo "Decompressing..."
-gunzip -k "$DEST_GZ"   # -k keeps the .gz in case you want to re-verify later
-rm -f "$DEST_GZ"
+curl -L --fail --retry 3 --retry-delay 5 -o "$DEST_H5AD" "$DOWNLOAD_URL"
 
 echo "Done: $DEST_H5AD"
 echo ""

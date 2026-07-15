@@ -28,12 +28,21 @@ logger = get_logger("04_integration")
 
 
 def run_harmony(adata):
-    import scanpy.external as sce
+    import harmonypy as hm
 
     logger.info("Running Harmony (key=%s)...", config.BATCH_KEY)
     adata_h = adata.copy()
-    sce.pp.harmony_integrate(adata_h, key=config.BATCH_KEY, basis="X_pca",
-                              adjusted_basis="X_pca_harmony", random_state=config.RANDOM_STATE)
+    
+    pcs = adata_h.obsm["X_pca"]
+    ho = hm.run_harmony(pcs, adata_h.obs, config.BATCH_KEY, random_state=config.RANDOM_STATE)
+    
+    # Z_corr is traditionally (n_pcs, n_cells), so Z_corr.T is (n_cells, n_pcs)
+    corrected = ho.Z_corr.T
+    if corrected.shape != (adata_h.n_obs, pcs.shape[1]):
+        corrected = ho.Z_corr
+        
+    adata_h.obsm["X_pca_harmony"] = corrected
+    
     sc.pp.neighbors(adata_h, use_rep="X_pca_harmony", n_neighbors=config.N_NEIGHBORS,
                      random_state=config.RANDOM_STATE)
     sc.tl.umap(adata_h, random_state=config.RANDOM_STATE)
